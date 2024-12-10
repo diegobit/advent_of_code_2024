@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"slices"
+	"time"
 )
 
 // Assumptions:
@@ -80,18 +82,17 @@ func printLevel(level *GameMap, guard *Guard, foundLoop bool) {
 	for _, row := range *level {
 		fmt.Println(row)
 	}
-	fmt.Printf("Guard: x=%d, y=%d, dir=%d\n", guard.x, guard.y, guard.dir)
 
 	steps := 1
 	for _, row := range *level {
 		for _, val := range row {
-			if val == VisitedHorizontal || val == VisitedVertical || val == VisitedCorner {
+			if slices.Contains([]Cell{GuardUp, GuardDown, GuardLeft, GuardRight, VisitedVertical, VisitedHorizontal, VisitedCorner}, val) {
 				steps += 1
 			}
 		}
 	}
 	fmt.Printf("STATUS: Steps=%d, Loop=%v\n", steps, foundLoop)
-	fmt.Println("---")
+	fmt.Println("")
 }
 
 func isOnBorder (guard Guard, level GameMap) bool {
@@ -101,6 +102,21 @@ func isOnBorder (guard Guard, level GameMap) bool {
 	(guard.y == lastRow && guard.dir == Down) ||
 	(guard.x == 0 && guard.dir == Left) ||
 	(guard.x == lastCol && guard.dir == Right)
+}
+
+func dir2Cell(dir Dir) Cell {
+	switch dir {
+	case Up:
+		return GuardUp
+	case Down:
+		return GuardDown
+	case Left:
+		return GuardLeft
+	case Right:
+		return GuardRight
+	default:
+		return Empty
+	}
 }
 
 func tracePath(levelOrig *GameMap, guardOrig Guard) (*GameMap, *Guard, bool) {
@@ -116,63 +132,110 @@ func tracePath(levelOrig *GameMap, guardOrig Guard) (*GameMap, *Guard, bool) {
 
 	// CODE
 	for {
+		printLevel(&level, &guard, false)
+		time.Sleep(500*time.Millisecond)
 		if isOnBorder(guard, level) {
 			// EXIT MAP!
+			level[guardOrig.y][guardOrig.x] = dir2Cell(guardOrig.dir)
 			return &level, &guard, false
 		}
 
 		switch guard.dir {
 		case Up:
-			if level[guard.y-1][guard.x] == GuardUp {
+			if level[guard.y-1][guard.x] == VisitedVertical || level[guard.y-1][guard.x] == VisitedCorner {
 				// LOOP!
+				level[guardOrig.y][guardOrig.x] = dir2Cell(guardOrig.dir)
 				return &level, &guard, true
 			} else if (level[guard.y-1][guard.x] == Obstacle || level[guard.y-1][guard.x] == NewObstacle) {
-				level[guard.y][guard.x+1] = GuardRight
+				// TURN
+				if level[guard.y][guard.x+1] == VisitedVertical || level[guard.y][guard.x+1] == VisitedCorner {
+					level[guard.y][guard.x+1] = VisitedCorner
+				} else {
+					level[guard.y][guard.x+1] = VisitedHorizontal
+				}
 				level[guard.y][guard.x] = VisitedCorner
 				guard.x += 1
 				guard.dir = Right
 			} else {
-				level[guard.y-1][guard.x] = GuardUp
-				level[guard.y][guard.x] = VisitedVertical
+				// CONTINUE
+				if level[guard.y-1][guard.x] == VisitedHorizontal {
+					level[guard.y-1][guard.x] = VisitedCorner
+				} else {
+					level[guard.y-1][guard.x] = VisitedVertical
+				}
+				// level[guard.y][guard.x] = VisitedVertical
 				guard.y -= 1
 			}
 		case Down:
-			if level[guard.y+1][guard.x] == GuardDown {
+			if level[guard.y+1][guard.x] == VisitedVertical || level[guard.y+1][guard.x] == VisitedCorner {
+				// LOOP!
+				level[guardOrig.y][guardOrig.x] = dir2Cell(guardOrig.dir)
 				return &level, &guard, true
 			} else if (level[guard.y+1][guard.x] == Obstacle || level[guard.y+1][guard.x] == NewObstacle) {
-				level[guard.y][guard.x-1] = GuardLeft
+				// TURN
+				if level[guard.y][guard.x-1] == VisitedVertical || level[guard.y][guard.x-1] == VisitedCorner {
+					level[guard.y][guard.x-1] = VisitedCorner
+				} else {
+					level[guard.y][guard.x-1] = VisitedHorizontal
+				}
 				level[guard.y][guard.x] = VisitedCorner
 				guard.x -= 1
 				guard.dir = Left
 			} else {
-				level[guard.y+1][guard.x] = GuardDown
-				level[guard.y][guard.x] = VisitedVertical
+				// CONTINUE
+				if level[guard.y+1][guard.x] == VisitedHorizontal {
+					level[guard.y+1][guard.x] = VisitedCorner
+				} else {
+					level[guard.y+1][guard.x] = VisitedVertical
+				}
 				guard.y += 1
 			}
 		case Left:
-			if level[guard.y][guard.x-1] == GuardLeft {
+			if level[guard.y][guard.x-1] == VisitedHorizontal || level[guard.y][guard.x-1] == VisitedCorner {
+				// LOOP!
+				level[guardOrig.y][guardOrig.x] = dir2Cell(guardOrig.dir)
 				return &level, &guard, true
 			} else if (level[guard.y][guard.x-1] == Obstacle || level[guard.y][guard.x-1] == NewObstacle) {
-				level[guard.y-1][guard.x] = GuardUp
+				// TURN
+				if level[guard.y-1][guard.x] == VisitedHorizontal || level[guard.y-1][guard.x] == VisitedCorner {
+					level[guard.y-1][guard.x] = VisitedCorner
+				} else {
+					level[guard.y-1][guard.x] = VisitedVertical
+				}
 				level[guard.y][guard.x] = VisitedCorner
 				guard.y -= 1
 				guard.dir = Up
 			} else {
-				level[guard.y][guard.x-1] = GuardLeft
-				level[guard.y][guard.x] = VisitedHorizontal
+				// CONTINUE
+				if level[guard.y][guard.x-1] == VisitedVertical {
+					level[guard.y][guard.x-1] = VisitedCorner
+				} else {
+					level[guard.y][guard.x-1] = VisitedHorizontal
+				}
 				guard.x -= 1
 			}
 		case Right:
-			if level[guard.y][guard.x+1] == GuardRight{
+			if level[guard.y][guard.x+1] == VisitedHorizontal || level[guard.y][guard.x+1] == VisitedCorner {
+				// LOOP!
+				level[guardOrig.y][guardOrig.x] = dir2Cell(guardOrig.dir)
 				return &level, &guard, true
 			} else if (level[guard.y][guard.x+1] == Obstacle || level[guard.y][guard.x+1] == NewObstacle) {
-				level[guard.y+1][guard.x] = GuardDown
+				// TURN
+				if level[guard.y+1][guard.x] == VisitedHorizontal || level[guard.y+1][guard.x] == VisitedCorner {
+					level[guard.y+1][guard.x] = VisitedCorner
+				} else {
+					level[guard.y+1][guard.x] = VisitedVertical
+				}
 				level[guard.y][guard.x] = VisitedCorner
 				guard.y += 1
 				guard.dir = Down
 			} else {
-				level[guard.y][guard.x+1] = GuardRight
-				level[guard.y][guard.x] = VisitedHorizontal
+				// CONTINUE
+				if level[guard.y][guard.x+1] == VisitedVertical {
+					level[guard.y][guard.x+1] = VisitedCorner
+				} else {
+					level[guard.y][guard.x+1] = VisitedHorizontal
+				}
 				guard.x += 1
 			}
 		}
@@ -231,13 +294,14 @@ func Problem2(path string) {
 		*level = append(*level, row)
 	}
 
+	fmt.Println("=== START ===")
 	printLevel(level, guard, false)
 
-	newLevelMap, newGuard, foundLoop := tracePath(level, *guard)
+	levelMapSolved, guardSolved, _ := tracePath(level, *guard)
 
-	printLevel(newLevelMap, newGuard, foundLoop)
+	fmt.Println("=== ORIGINAL MAP SOLVED ===")
+	printLevel(levelMapSolved, guardSolved, false)
 
-	// fmt.Println(visitedMap)
 }
 
 func main() {
