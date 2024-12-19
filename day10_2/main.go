@@ -77,16 +77,15 @@ func scanMap(terrain [][]int8) (trailheads map[string]int, visitedTrails Set) {
 				var trails []Trail
 				trails = getTrails(terrain, x, y, x, y, -1, -1, 0)
 				for _, trail := range trails {
-					if !visitedTrails.Contains(trail2Id(trail)) {
-						trailheads[coord2Id(trail.startX, trail.startY)]++
-						visitedTrails.Add(trail2Id(trail))
-					}
+					trailheads[coord2Id(trail.startX, trail.startY)]++
+					visitedTrails.Add(trail2Id(trail))
 				}
 			}
 		}
 	}
 	return
 }
+
 
 func getTrails(terrain [][]int8, sX int, sY int, x int, y int, prevX int, prevY int, expectedAlt int8) []Trail {
 	// fmt.Println(terrain)
